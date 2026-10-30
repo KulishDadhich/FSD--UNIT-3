@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SecurityConfig.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">eventflow</a> &gt; <a href="index.source.html" class="el_package">dev.eventflow.security</a> &gt; <span class="el_source">SecurityConfig.java</span></div><h1>SecurityConfig.java</h1><pre class="source lang-java linenums">package dev.eventflow.security;
+
+import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import javax.crypto.spec.SecretKeySpec;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.*;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.*;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.web.SecurityFilterChain;
+
+@io.swagger.v3.oas.annotations.security.SecurityScheme(name=&quot;bearerAuth&quot;,type=io.swagger.v3.oas.annotations.enums.SecuritySchemeType.HTTP,scheme=&quot;bearer&quot;,bearerFormat=&quot;JWT&quot;)
+@io.swagger.v3.oas.annotations.OpenAPIDefinition(security=@io.swagger.v3.oas.annotations.security.SecurityRequirement(name=&quot;bearerAuth&quot;))
+@Configuration
+<span class="fc" id="L18">public class SecurityConfig {</span>
+  @Bean
+  BCryptPasswordEncoder passwords() {
+<span class="fc" id="L21">    return new BCryptPasswordEncoder();</span>
+  }
+
+  @Bean
+  SecretKeySpec key(@Value(&quot;${app.jwt-secret}&quot;) String s) {
+<span class="pc bpc" id="L26" title="1 of 2 branches missed.">    if (s.length() &lt; 32)</span>
+<span class="nc" id="L27">      throw new IllegalArgumentException(&quot;JWT_SECRET must contain at least 32 characters&quot;);</span>
+<span class="fc" id="L28">    return new SecretKeySpec(s.getBytes(java.nio.charset.StandardCharsets.UTF_8), &quot;HmacSHA256&quot;);</span>
+  }
+
+  @Bean
+  JwtEncoder encoder(SecretKeySpec key) {
+<span class="fc" id="L33">    return new NimbusJwtEncoder(new ImmutableSecret&lt;&gt;(key));</span>
+  }
+
+  @Bean
+  JwtDecoder decoder(SecretKeySpec key) {
+<span class="fc" id="L38">    var d = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();</span>
+<span class="fc" id="L39">    d.setJwtValidator(JwtValidators.createDefaultWithIssuer(&quot;eventflow&quot;));</span>
+<span class="fc" id="L40">    return d;</span>
+  }
+
+  @Bean
+  SecurityFilterChain security(HttpSecurity h, Accounts accounts) throws Exception {
+<span class="fc" id="L45">    var converter = new JwtAuthenticationConverter();</span>
+<span class="fc" id="L46">    converter.setJwtGrantedAuthoritiesConverter(</span>
+        jwt -&gt;
+            accounts
+<span class="fc" id="L49">                .findById(jwt.getSubject())</span>
+<span class="fc" id="L50">                .map(</span>
+                    a -&gt;
+<span class="fc" id="L52">                        java.util.List.&lt;org.springframework.security.core.GrantedAuthority&gt;of(</span>
+                            new org.springframework.security.core.authority.SimpleGrantedAuthority(
+                                &quot;ROLE_&quot; + a.role)))
+<span class="fc" id="L55">                .orElse(java.util.List.of()));</span>
+<span class="fc" id="L56">    return h.cors(c -&gt; {})</span>
+<span class="fc" id="L57">        .csrf(c -&gt; c.disable())</span>
+<span class="fc" id="L58">        .sessionManagement(s -&gt; s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))</span>
+<span class="fc" id="L59">        .authorizeHttpRequests(</span>
+            a -&gt;
+<span class="fc" id="L61">                a.requestMatchers(</span>
+                        &quot;/api/auth/login&quot;,
+                        &quot;/api/auth/register&quot;,
+                        &quot;/actuator/health&quot;,
+                        &quot;/v3/api-docs/**&quot;,
+                        &quot;/swagger-ui/**&quot;,
+                        &quot;/swagger-ui.html&quot;)
+<span class="fc" id="L68">                    .permitAll()</span>
+<span class="fc" id="L69">                    .requestMatchers(&quot;/api/team/**&quot;)</span>
+<span class="fc" id="L70">                    .hasRole(&quot;ADMIN&quot;)</span>
+<span class="fc" id="L71">                    .requestMatchers(org.springframework.http.HttpMethod.GET, &quot;/api/**&quot;)</span>
+<span class="fc" id="L72">                    .hasAnyRole(&quot;ADMIN&quot;, &quot;EDITOR&quot;, &quot;VIEWER&quot;)</span>
+<span class="fc" id="L73">                    .requestMatchers(&quot;/api/**&quot;)</span>
+<span class="fc" id="L74">                    .hasAnyRole(&quot;ADMIN&quot;, &quot;EDITOR&quot;)</span>
+<span class="fc" id="L75">                    .anyRequest()</span>
+<span class="fc" id="L76">                    .authenticated())</span>
+<span class="fc" id="L77">        .oauth2ResourceServer(o -&gt; o.jwt(j -&gt; j.jwtAuthenticationConverter(converter)))</span>
+<span class="fc" id="L78">        .build();</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

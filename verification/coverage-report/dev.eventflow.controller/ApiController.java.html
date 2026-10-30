@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ApiController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">eventflow</a> &gt; <a href="index.source.html" class="el_package">dev.eventflow.controller</a> &gt; <span class="el_source">ApiController.java</span></div><h1>ApiController.java</h1><pre class="source lang-java linenums">package dev.eventflow.controller;
+
+import dev.eventflow.dto.CreatePost;
+import dev.eventflow.entity.PostEvent;
+import dev.eventflow.repository.*;
+import dev.eventflow.service.EventService;
+import jakarta.validation.Valid;
+import java.time.*;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.springframework.http.HttpStatus;
+import org.springframework.kafka.core.KafkaAdmin;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+@RestController
+@RequestMapping(&quot;/api&quot;)
+public class ApiController {
+  private final EventService service;
+  private final EventRepository events;
+  private final ActivityRepository activity;
+  private final KafkaAdmin admin;
+
+<span class="fc" id="L26">  public ApiController(EventService s, EventRepository e, ActivityRepository a, KafkaAdmin k) {</span>
+<span class="fc" id="L27">    service = s;</span>
+<span class="fc" id="L28">    events = e;</span>
+<span class="fc" id="L29">    activity = a;</span>
+<span class="fc" id="L30">    admin = k;</span>
+<span class="fc" id="L31">  }</span>
+
+  private Map&lt;String, Object&gt; ok(Object data) {
+<span class="fc" id="L34">    return Map.of(&quot;data&quot;, data);</span>
+  }
+
+  @PostMapping(&quot;/posts&quot;)
+  @ResponseStatus(HttpStatus.CREATED)
+  public Object create(@Valid @RequestBody CreatePost p) {
+<span class="fc" id="L40">    return ok(service.create(p, &quot;NORMAL&quot;, 1));</span>
+  }
+
+  @GetMapping(&quot;/posts&quot;)
+  public Object posts() {
+<span class="fc" id="L45">    return ok(events.findAllByOrderByCreatedAtDesc());</span>
+  }
+
+  @PostMapping(&quot;/posts/{id}/process-now&quot;)
+  @ResponseStatus(HttpStatus.CREATED)
+  public Object now(@PathVariable String id) {
+<span class="fc" id="L51">    return ok(service.processNow(id));</span>
+  }
+
+  @PostMapping(&quot;/demo/{scenario}&quot;)
+  @ResponseStatus(HttpStatus.ACCEPTED)
+  public Object demo(@PathVariable String scenario) {
+    String mode =
+<span class="fc bfc" id="L58" title="All 4 branches covered.">        switch (scenario) {</span>
+<span class="fc" id="L59">          case &quot;success&quot;, &quot;duplicate&quot; -&gt; &quot;NORMAL&quot;;</span>
+<span class="fc" id="L60">          case &quot;transient-failure&quot; -&gt; &quot;TRANSIENT&quot;;</span>
+<span class="fc" id="L61">          case &quot;permanent-failure&quot; -&gt; &quot;PERMANENT&quot;;</span>
+          default -&gt;
+<span class="fc" id="L63">              throw new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Unknown demonstration&quot;);</span>
+        };
+<span class="fc" id="L65">    return ok(</span>
+<span class="fc" id="L66">        service.create(</span>
+            new CreatePost(
+                null,
+                &quot;Demo · &quot; + scenario,
+                &quot;A classroom demonstration of reliable event processing.&quot;,
+                &quot;LinkedIn&quot;,
+<span class="fc" id="L72">                Instant.now()),</span>
+            mode,
+<span class="fc bfc" id="L74" title="All 2 branches covered.">            scenario.equals(&quot;duplicate&quot;) ? 2 : 1));</span>
+  }
+
+  @GetMapping(&quot;/events/activity&quot;)
+  public Object activity() {
+<span class="fc" id="L79">    return ok(activity.findTop100ByOrderByIdDesc());</span>
+  }
+
+  @GetMapping(&quot;/events/{id}&quot;)
+  public Object detail(@PathVariable String id) {
+<span class="fc" id="L84">    return ok(</span>
+<span class="fc" id="L85">        Map.of(&quot;event&quot;, service.require(id), &quot;history&quot;, activity.findByEventIdOrderByIdAsc(id)));</span>
+  }
+
+  @GetMapping(&quot;/events&quot;)
+  public Object events(
+      @RequestParam(defaultValue = &quot;&quot;) String search,
+      @RequestParam(defaultValue = &quot;&quot;) String status,
+      @RequestParam(defaultValue = &quot;0&quot;) int page,
+      @RequestParam(defaultValue = &quot;10&quot;) int size,
+      @RequestParam(defaultValue = &quot;desc&quot;) String order,
+      @RequestParam(defaultValue = &quot;createdAt&quot;) String sort) {
+<span class="pc bpc" id="L96" title="2 of 6 branches missed.">    if (page &lt; 0 || size &lt; 1 || size &gt; 100)</span>
+<span class="fc" id="L97">      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;Invalid page or size&quot;);</span>
+    Comparator&lt;PostEvent&gt; comparator =
+<span class="fc bfc" id="L99" title="All 3 branches covered.">        switch (sort) {</span>
+<span class="fc" id="L100">          case &quot;status&quot; -&gt; Comparator.comparing(e -&gt; e.status);</span>
+<span class="fc" id="L101">          case &quot;attempts&quot; -&gt; Comparator.comparingInt(e -&gt; e.attempts);</span>
+<span class="fc" id="L102">          default -&gt; Comparator.comparing(e -&gt; e.createdAt);</span>
+        };
+<span class="fc" id="L104">    var list =</span>
+<span class="fc" id="L105">        events.findAll().stream()</span>
+<span class="pc bpc" id="L106" title="1 of 4 branches missed.">            .filter(e -&gt; status.isEmpty() || e.status.equals(status))</span>
+<span class="fc" id="L107">            .filter(</span>
+                e -&gt;
+<span class="fc" id="L109">                    (e.eventId + &quot; &quot; + e.title + &quot; &quot; + e.failureMode)</span>
+<span class="fc" id="L110">                        .toLowerCase()</span>
+<span class="fc" id="L111">                        .contains(search.toLowerCase()))</span>
+<span class="fc bfc" id="L112" title="All 2 branches covered.">            .sorted(order.equals(&quot;asc&quot;) ? comparator : comparator.reversed())</span>
+<span class="fc" id="L113">            .toList();</span>
+<span class="fc" id="L114">    return ok(</span>
+<span class="fc" id="L115">        Map.of(</span>
+            &quot;items&quot;,
+<span class="fc" id="L117">            list.stream().skip((long) page * size).limit(size).toList(),</span>
+            &quot;total&quot;,
+<span class="fc" id="L119">            list.size(),</span>
+            &quot;page&quot;,
+<span class="fc" id="L121">            page,</span>
+            &quot;size&quot;,
+<span class="fc" id="L123">            size));</span>
+  }
+
+  @GetMapping(&quot;/dlq&quot;)
+  public Object dlq() {
+<span class="fc" id="L128">    return ok(</span>
+<span class="fc" id="L129">        events.findAllByOrderByCreatedAtDesc().stream()</span>
+<span class="fc" id="L130">            .filter(e -&gt; e.status.equals(&quot;DLQ&quot;))</span>
+<span class="fc" id="L131">            .toList());</span>
+  }
+
+  @PostMapping(&quot;/dlq/{id}/reprocess&quot;)
+  @ResponseStatus(HttpStatus.ACCEPTED)
+  public Object replay(@PathVariable String id) {
+<span class="nc" id="L137">    return ok(service.replay(id));</span>
+  }
+
+  @GetMapping(&quot;/dashboard/stats&quot;)
+  public Object stats() {
+<span class="fc" id="L142">    var list = events.findAll();</span>
+<span class="fc" id="L143">    long success = list.stream().filter(e -&gt; e.status.equals(&quot;SUCCESS&quot;)).count();</span>
+<span class="fc" id="L144">    var logs = activity.findAll();</span>
+<span class="fc" id="L145">    return ok(</span>
+<span class="fc" id="L146">        Map.of(</span>
+            &quot;total&quot;,
+<span class="fc" id="L148">            list.size(),</span>
+            &quot;success&quot;,
+<span class="fc" id="L150">            success,</span>
+            &quot;retries&quot;,
+<span class="pc bpc" id="L152" title="1 of 4 branches missed.">            logs.stream().filter(a -&gt; a.stage.equals(&quot;PROCESSING&quot;) &amp;&amp; a.attempt &gt; 1).count(),</span>
+            &quot;failed&quot;,
+<span class="fc" id="L154">            list.stream().filter(e -&gt; Set.of(&quot;FAILED&quot;, &quot;DLQ&quot;).contains(e.status)).count(),</span>
+            &quot;dlq&quot;,
+<span class="fc" id="L156">            list.stream().filter(e -&gt; e.status.equals(&quot;DLQ&quot;)).count(),</span>
+            &quot;duplicates&quot;,
+<span class="fc" id="L158">            list.stream().mapToInt(e -&gt; e.duplicates).sum(),</span>
+            &quot;successRate&quot;,
+<span class="fc bfc" id="L160" title="All 2 branches covered.">            list.isEmpty() ? 0 : Math.round(1000.0 * success / list.size()) / 10.0));</span>
+  }
+
+  @GetMapping(&quot;/analytics&quot;)
+  public Object analytics() {
+<span class="fc" id="L165">    var list = events.findAll();</span>
+<span class="fc" id="L166">    var series = new ArrayList&lt;Map&lt;String, Object&gt;&gt;();</span>
+<span class="fc" id="L167">    Instant end = Instant.now().truncatedTo(ChronoUnit.MINUTES);</span>
+<span class="fc bfc" id="L168" title="All 2 branches covered.">    for (int i = 11; i &gt;= 0; i--) {</span>
+<span class="fc" id="L169">      Instant start = end.minus(i, ChronoUnit.MINUTES);</span>
+<span class="fc" id="L170">      Instant stop = start.plus(1, ChronoUnit.MINUTES);</span>
+<span class="fc" id="L171">      series.add(</span>
+<span class="fc" id="L172">          Map.of(</span>
+              &quot;time&quot;,
+<span class="fc" id="L174">              start.toString(),</span>
+              &quot;success&quot;,
+<span class="fc" id="L176">              list.stream()</span>
+<span class="fc" id="L177">                  .filter(</span>
+                      e -&gt;
+<span class="fc bfc" id="L179" title="All 2 branches covered.">                          e.processedAt != null</span>
+<span class="pc bpc" id="L180" title="1 of 2 branches missed.">                              &amp;&amp; !e.processedAt.isBefore(start)</span>
+<span class="fc bfc" id="L181" title="All 2 branches covered.">                              &amp;&amp; e.processedAt.isBefore(stop))</span>
+<span class="fc" id="L182">                  .count(),</span>
+              &quot;failed&quot;,
+<span class="fc" id="L184">              list.stream()</span>
+<span class="fc" id="L185">                  .filter(</span>
+<span class="pc bpc" id="L186" title="5 of 6 branches missed.">                      e -&gt; e.dlqAt != null &amp;&amp; !e.dlqAt.isBefore(start) &amp;&amp; e.dlqAt.isBefore(stop))</span>
+<span class="fc" id="L187">                  .count()));</span>
+    }
+<span class="fc" id="L189">    return ok(</span>
+<span class="fc" id="L190">        Map.of(</span>
+            &quot;series&quot;,
+            series,
+            &quot;attempts&quot;,
+<span class="fc" id="L194">            List.of(</span>
+<span class="fc" id="L195">                Map.of(</span>
+                    &quot;name&quot;,
+                    &quot;1 attempt&quot;,
+                    &quot;value&quot;,
+<span class="fc bfc" id="L199" title="All 2 branches covered.">                    list.stream().filter(e -&gt; e.attempts == 1).count()),</span>
+<span class="fc" id="L200">                Map.of(</span>
+                    &quot;name&quot;,
+                    &quot;2 attempts&quot;,
+                    &quot;value&quot;,
+<span class="pc bpc" id="L204" title="1 of 2 branches missed.">                    list.stream().filter(e -&gt; e.attempts == 2).count()),</span>
+<span class="fc" id="L205">                Map.of(</span>
+                    &quot;name&quot;,
+                    &quot;3+ attempts&quot;,
+                    &quot;value&quot;,
+<span class="pc bpc" id="L209" title="1 of 2 branches missed.">                    list.stream().filter(e -&gt; e.attempts &gt;= 3).count()))));</span>
+  }
+
+  private volatile long checkedAt;
+  private volatile boolean connected;
+
+  @GetMapping(&quot;/system/health&quot;)
+  public synchronized Object health() {
+<span class="pc bpc" id="L217" title="1 of 2 branches missed.">    if (System.currentTimeMillis() - checkedAt &gt; 5000) {</span>
+<span class="fc" id="L218">      try (var client = AdminClient.create(admin.getConfigurationProperties())) {</span>
+<span class="nc bnc" id="L219" title="All 2 branches missed.">        connected = !client.describeCluster().nodes().get(2, TimeUnit.SECONDS).isEmpty();</span>
+<span class="fc" id="L220">      } catch (Exception e) {</span>
+<span class="fc" id="L221">        connected = false;</span>
+<span class="nc" id="L222">      }</span>
+<span class="fc" id="L223">      checkedAt = System.currentTimeMillis();</span>
+    }
+    boolean db;
+    try {
+<span class="fc" id="L227">      events.count();</span>
+<span class="fc" id="L228">      db = true;</span>
+<span class="nc" id="L229">    } catch (Exception ex) {</span>
+<span class="nc" id="L230">      db = false;</span>
+<span class="fc" id="L231">    }</span>
+<span class="fc" id="L232">    return ok(</span>
+<span class="fc" id="L233">        Map.of(</span>
+            &quot;kafka&quot;,
+<span class="fc" id="L235">            connected,</span>
+            &quot;database&quot;,
+<span class="fc" id="L237">            db,</span>
+            &quot;api&quot;,
+<span class="fc" id="L239">            true,</span>
+            &quot;checkedAt&quot;,
+<span class="fc" id="L241">            Instant.ofEpochMilli(checkedAt).toString()));</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

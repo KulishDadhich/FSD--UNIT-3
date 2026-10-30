@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PostScheduler.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">eventflow</a> &gt; <a href="index.source.html" class="el_package">dev.eventflow.scheduler</a> &gt; <span class="el_source">PostScheduler.java</span></div><h1>PostScheduler.java</h1><pre class="source lang-java linenums">package dev.eventflow.scheduler;
+
+import dev.eventflow.producer.EventDispatcher;
+import dev.eventflow.repository.EventRepository;
+import java.time.Instant;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+
+@Component
+@ConditionalOnProperty(name = &quot;app.scheduling-enabled&quot;, havingValue = &quot;true&quot;, matchIfMissing = true)
+public class PostScheduler {
+  private final EventRepository events;
+  private final EventDispatcher dispatcher;
+
+<span class="nc" id="L17">  public PostScheduler(EventRepository e, EventDispatcher d) {</span>
+<span class="nc" id="L18">    events = e;</span>
+<span class="nc" id="L19">    dispatcher = d;</span>
+<span class="nc" id="L20">  }</span>
+
+  @Scheduled(fixedDelay = 1000)
+  public void tick() {
+    for (var e :
+<span class="nc bnc" id="L25" title="All 2 branches missed.">        events.findTop50ByStatusAndScheduledAtLessThanEqualOrderByScheduledAtAsc(</span>
+<span class="nc" id="L26">            &quot;SCHEDULED&quot;, Instant.now())) {</span>
+      try {
+<span class="nc" id="L28">        dispatcher.dispatch(e.eventId);</span>
+<span class="nc" id="L29">      } catch (Exception ex) {</span>
+<span class="nc" id="L30">        LoggerFactory.getLogger(getClass())</span>
+<span class="nc" id="L31">            .warn(&quot;Kafka dispatch pending for {}; will retry&quot;, e.eventId);</span>
+<span class="nc" id="L32">        break;</span>
+<span class="nc" id="L33">      }</span>
+<span class="nc" id="L34">    }</span>
+<span class="nc" id="L35">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

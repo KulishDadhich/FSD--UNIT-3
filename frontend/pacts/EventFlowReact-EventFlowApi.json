@@ -1,0 +1,77 @@
+{
+  "consumer": {
+    "name": "EventFlowReact"
+  },
+  "interactions": [
+    {
+      "description": "valid viewer login",
+      "providerStates": [
+        {
+          "name": "a viewer exists"
+        }
+      ],
+      "request": {
+        "body": {
+          "email": "contract@example.com",
+          "password": "contract-password-123"
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "method": "POST",
+        "path": "/api/auth/login"
+      },
+      "response": {
+        "body": {
+          "data": {
+            "email": "contract@example.com",
+            "expiresAt": "2026-10-30T10:00:00Z",
+            "role": "VIEWER",
+            "token": "signed-token"
+          }
+        },
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "matchingRules": {
+          "body": {
+            "$.data.expiresAt": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            },
+            "$.data.token": {
+              "combine": "AND",
+              "matchers": [
+                {
+                  "match": "type"
+                }
+              ]
+            }
+          },
+          "header": {},
+          "status": {}
+        },
+        "status": 200
+      }
+    }
+  ],
+  "metadata": {
+    "pact-js": {
+      "version": "13.2.0"
+    },
+    "pactRust": {
+      "ffi": "0.4.22",
+      "models": "1.2.3"
+    },
+    "pactSpecification": {
+      "version": "3.0.0"
+    }
+  },
+  "provider": {
+    "name": "EventFlowApi"
+  }
+}

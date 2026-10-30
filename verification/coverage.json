@@ -1,0 +1,8 @@
+{
+  "metric": "aggregate backend line coverage",
+  "covered": 361,
+  "total": 404,
+  "percent": 89.36,
+  "minimum": 80,
+  "exclusions": []
+}

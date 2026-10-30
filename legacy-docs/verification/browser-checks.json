@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "results": [
+    "Desktop overview rendered with live health and empty database",
+    "All eight routes render without uncaught browser errors or page overflow at 1440px",
+    "Successful event demonstrated through UI → REST → Kafka → database → UI",
+    "Transient failure UI reaches real successful third attempt",
+    "Permanent failure reaches DLQ after 3 attempts; UI correction replays same ID to SUCCESS",
+    "Duplicate UI shows confirmed backend detection",
+    "Scheduled post form creates a real due event and automatic scheduler processes it",
+    "Future event remains SCHEDULED before due time, then automatically publishes",
+    "REST validation, missing event and completed-replay protection return 400/404/409",
+    "History inspection, search and CSV download verified",
+    "All eight routes fit 390px mobile viewport; navigation drawer works",
+    "No uncaught browser JavaScript exceptions"
+  ],
+  "errors": []
+}

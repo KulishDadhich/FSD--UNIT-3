@@ -1,0 +1,37 @@
+[
+  {
+    "name": "dev.eventflow.ContractProviderTest",
+    "tests": "1",
+    "errors": "0",
+    "skipped": "0",
+    "failures": "0"
+  },
+  {
+    "name": "dev.eventflow.RetryPolicyUnitTest",
+    "tests": "2",
+    "errors": "0",
+    "skipped": "0",
+    "failures": "0"
+  },
+  {
+    "name": "dev.eventflow.SecurityApiTest",
+    "tests": "8",
+    "errors": "0",
+    "skipped": "0",
+    "failures": "0"
+  },
+  {
+    "name": "dev.eventflow.ReliabilityTest",
+    "tests": "8",
+    "errors": "0",
+    "skipped": "0",
+    "failures": "0"
+  },
+  {
+    "name": "dev.eventflow.ContainerInfrastructureTest",
+    "tests": "2",
+    "errors": "0",
+    "skipped": "2",
+    "failures": "0"
+  }
+]

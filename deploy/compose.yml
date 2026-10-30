@@ -1,0 +1,101 @@
+services:
+  kafka:
+    image: apache/kafka:3.9.1
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: HOST://:9092,INTERNAL://:19092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: HOST://localhost:9092,INTERNAL://kafka:19092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: HOST:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+    - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:19092 --list >/dev/null
+        2>&1
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+  postgres:
+    image: postgres:16.6-alpine
+    environment:
+      POSTGRES_DB: eventflow
+      POSTGRES_USER: eventflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+    - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U eventflow
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  backend:
+    environment:
+      SERVER_ADDRESS: 0.0.0.0
+      DB_URL: jdbc:postgresql://postgres:5432/eventflow
+      DB_USER: eventflow
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:8088}
+      MIGRATIONS_ENABLED: 'true'
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    image: ${IMAGE_BASE}-backend:${STABLE_TAG}
+  frontend:
+    depends_on:
+    - backend
+    image: ${IMAGE_BASE}-frontend:${STABLE_TAG}
+  candidate:
+    environment:
+      SERVER_ADDRESS: 0.0.0.0
+      DB_URL: jdbc:postgresql://postgres:5432/eventflow
+      DB_USER: eventflow
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:8088}
+      SPRING_KAFKA_LISTENER_AUTO_STARTUP: 'false'
+      APP_SCHEDULING_ENABLED: 'false'
+      MIGRATIONS_ENABLED: 'true'
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    image: ${IMAGE_BASE}-backend:${CANDIDATE_TAG}
+  gateway:
+    image: nginx:1.27-alpine
+    ports:
+    - 127.0.0.1:8088:80
+    volumes:
+    - ./nginx:/etc/nginx/conf.d:ro
+    depends_on:
+    - frontend
+    - backend
+    - candidate
+volumes:
+  kafka-data: null
+  postgres-data: {}

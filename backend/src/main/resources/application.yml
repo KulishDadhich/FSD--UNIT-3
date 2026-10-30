@@ -1,0 +1,45 @@
+server:
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  port: 8080
+spring:
+  flyway:
+    enabled: ${MIGRATIONS_ENABLED:false}
+  application:
+    name: eventflow
+  datasource:
+    url: ${DB_URL:jdbc:h2:file:./data/eventflow;DB_CLOSE_ON_EXIT=FALSE;LOCK_TIMEOUT=15000}
+    username: ${DB_USER:sa}
+    password: ${DB_PASSWORD:}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    admin:
+      fail-fast: false
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        delivery.timeout.ms: 10000
+        request.timeout.ms: 5000
+        max.block.ms: 5000
+    consumer:
+      group-id: eventflow-worker-v1
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    listener:
+      ack-mode: record
+      concurrency: 3
+app:
+  jwt-secret: ${JWT_SECRET}
+  scheduling-enabled: true
+  cors-origin: ${FRONTEND_ORIGIN:http://localhost:5173}
+logging:
+  level:
+    org.apache.kafka: WARN

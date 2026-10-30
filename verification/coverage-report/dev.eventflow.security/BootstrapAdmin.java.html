@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BootstrapAdmin.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">eventflow</a> &gt; <a href="index.source.html" class="el_package">dev.eventflow.security</a> &gt; <span class="el_source">BootstrapAdmin.java</span></div><h1>BootstrapAdmin.java</h1><pre class="source lang-java linenums">package dev.eventflow.security;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Component;
+
+@Component
+public class BootstrapAdmin implements CommandLineRunner {
+  private final Accounts a;
+  private final BCryptPasswordEncoder p;
+
+  @Value(&quot;${ADMIN_EMAIL:}&quot;)
+  String email;
+
+  @Value(&quot;${ADMIN_PASSWORD:}&quot;)
+  String password;
+
+<span class="fc" id="L19">  public BootstrapAdmin(Accounts a, BCryptPasswordEncoder p) {</span>
+<span class="fc" id="L20">    this.a = a;</span>
+<span class="fc" id="L21">    this.p = p;</span>
+<span class="fc" id="L22">  }</span>
+
+  public void run(String... args) {
+<span class="pc bpc" id="L25" title="3 of 4 branches missed.">    if (email.isBlank() || a.existsById(email.toLowerCase())) return;</span>
+<span class="nc bnc" id="L26" title="All 2 branches missed.">    if (password.length() &lt; 12)</span>
+<span class="nc" id="L27">      throw new IllegalArgumentException(&quot;ADMIN_PASSWORD requires 12 characters&quot;);</span>
+<span class="nc" id="L28">    var u = new Account();</span>
+<span class="nc" id="L29">    u.email = email.toLowerCase();</span>
+<span class="nc" id="L30">    u.passwordHash = p.encode(password);</span>
+<span class="nc" id="L31">    u.role = &quot;ADMIN&quot;;</span>
+<span class="nc" id="L32">    try { a.save(u); }</span>
+<span class="nc" id="L33">    catch (org.springframework.dao.DataIntegrityViolationException collision) {</span>
+<span class="nc bnc" id="L34" title="All 2 branches missed.">      if (!a.existsById(u.email)) throw collision;</span>
+<span class="nc" id="L35">    }</span>
+<span class="nc" id="L36">  }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

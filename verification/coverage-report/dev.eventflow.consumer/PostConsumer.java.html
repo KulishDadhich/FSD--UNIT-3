@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PostConsumer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">eventflow</a> &gt; <a href="index.source.html" class="el_package">dev.eventflow.consumer</a> &gt; <span class="el_source">PostConsumer.java</span></div><h1>PostConsumer.java</h1><pre class="source lang-java linenums">package dev.eventflow.consumer;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.eventflow.dto.EventMessage;
+import dev.eventflow.service.EventService;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.stereotype.Component;
+
+@Component
+public class PostConsumer {
+  private final ObjectMapper json;
+  private final EventService service;
+
+<span class="fc" id="L14">  public PostConsumer(ObjectMapper j, EventService s) {</span>
+<span class="fc" id="L15">    json = j;</span>
+<span class="fc" id="L16">    service = s;</span>
+<span class="fc" id="L17">  }</span>
+
+  @KafkaListener(topics = &quot;scheduled-posts&quot;)
+  public void receive(String payload) throws Exception {
+<span class="fc" id="L21">    var m = decode(payload);</span>
+<span class="fc" id="L22">    String failure = service.process(m);</span>
+<span class="fc bfc" id="L23" title="All 2 branches covered.">    if (failure != null) throw new IllegalStateException(failure);</span>
+<span class="fc" id="L24">  }</span>
+
+  @KafkaListener(
+      topics = &quot;scheduled-posts-dlt&quot;,
+      groupId = &quot;eventflow-dlt-v1&quot;,
+      containerFactory = &quot;dltFactory&quot;)
+  public void dlt(String payload) throws Exception {
+<span class="fc" id="L31">    service.deadLetter(decode(payload));</span>
+<span class="fc" id="L32">  }</span>
+
+  private EventMessage decode(String payload) throws Exception {
+<span class="fc" id="L35">    var m = json.readValue(payload, EventMessage.class);</span>
+<span class="pc bpc" id="L36" title="1 of 2 branches missed.">    if (m.eventId() == null</span>
+<span class="pc bpc" id="L37" title="1 of 2 branches missed.">        || m.postId() == null</span>
+<span class="pc bpc" id="L38" title="1 of 2 branches missed.">        || m.title() == null</span>
+<span class="pc bpc" id="L39" title="1 of 2 branches missed.">        || m.title().isBlank()</span>
+<span class="pc bpc" id="L40" title="1 of 2 branches missed.">        || m.content() == null</span>
+<span class="pc bpc" id="L41" title="1 of 2 branches missed.">        || m.platform() == null</span>
+<span class="pc bpc" id="L42" title="1 of 2 branches missed.">        || m.scheduledAt() == null</span>
+<span class="pc bpc" id="L43" title="1 of 2 branches missed.">        || m.createdAt() == null</span>
+<span class="pc bpc" id="L44" title="1 of 2 branches missed.">        || m.failureMode() == null) throw new IllegalArgumentException(&quot;Invalid event payload&quot;);</span>
+<span class="fc" id="L45">    return m;</span>
+  }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
